@@ -18,7 +18,7 @@ pipeline {
             steps {
                 script {
                     // Run Maven build and SonarQube analysis
-                    withSonarQubeEnv('SonarQube') { // Ensure 'SonarQube' is configured in Jenkins
+                    withSonarQubeEnv('SONAR_LATEST') { // Ensure 'SonarQube' is configured in Jenkins
                         sh "mvn clean verify sonar:sonar"
                     }
                 }
