@@ -1,6 +1,3 @@
-cd spring-petclinic
-vi Jenkins
-
 pipeline {
     agent { label 'java' }
     
@@ -38,6 +35,9 @@ pipeline {
     }
 
     post {
+        always {
+            cleanWs()
+        }
         success {
             echo 'Build succeeded'
         }
