@@ -1,46 +1,61 @@
 pipeline {
-  agent { label 'java' }
+    agent any
 
-  options {
-    timeout(time: 1, unit: 'HOURS')
-    retry(2)
-  }
-
-  triggers {
-    cron('0 * * * *')
-  }
-
-  stages {
-    stage('Source Code Pulling') {
-      steps {
-        git branch: 'main', url: 'https://github.com/SangramDev1/spring-petclinic.git'
-      }
+    environment {
+        M2_HOME = "/opt/apache-maven-3.9.8"  // Use the Maven installation path on the node
+        PATH = "${M2_HOME}/bin:${env.PATH}"   // Add Maven to the system PATH
     }
 
-    stage('Build & SonarQube Analysis') {
-      steps {
-        withEnv(["M2_HOME=/opt/apache-maven-3.9.8", "PATH=$M2_HOME/bin:$PATH"]) { // Set M2_HOME here
-          withSonarQubeEnv('SONAR_LATEST') { // Make sure SonarQube server is configured
-            sh 'mvn clean package sonar:sonar'
-          }
+    stages {
+        stage('Checkout SCM') {
+            steps {
+                // Checkout the source code from the Git repository
+                checkout scm
+            }
         }
-      }
+
+        stage('Build & SonarQube Analysis') {
+            steps {
+                script {
+                    // Run Maven build and SonarQube analysis
+                    withSonarQubeEnv('SonarQube') { // Ensure 'SonarQube' is configured in Jenkins
+                        sh "mvn clean verify sonar:sonar"
+                    }
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    script {
+                        def qg = waitForQualityGate()
+                        if (qg.status != 'OK') {
+                            error "Pipeline aborted due to quality gate failure: ${qg.status}"
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Archiving the Artifacts and Test Results') {
+            steps {
+                archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
+                junit '**/target/surefire-reports/*.xml'
+            }
+        }
     }
 
-    stage('Archiving the Artifacts and Test Results') {
-      steps {
-        junit '**/target/surefire-reports/*.xml' // Check the exact location of test reports
-        // Optional: Archive build artifacts if needed (e.g., archiveArtifacts 'target/*.jar')
-      }
+    post {
+        always {
+            // Clean up workspace after build
+            cleanWs()
+        }
+        success {
+            echo 'Build and SonarQube Analysis successful!'
+        }
+        failure {
+            echo 'Build failed.'
+        }
     }
-  }
-
-  post {
-    success {
-      echo 'Build succeeded'
-    }
-    failure {
-      echo 'Build failed'
-    }
-  }
 }
