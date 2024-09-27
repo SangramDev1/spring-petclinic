@@ -1,39 +1,46 @@
 pipeline {
-    agent any
+  agent { label 'java' }
 
-    environment {
-        // Specify Maven home path. Modify the path as per your Jenkins environment setup.
-        M2_HOME = '/usr/share/maven' // Example path, adjust based on your setup
-        PATH = "${M2_HOME}/bin:${env.PATH}"
+  options {
+    timeout(time: 1, unit: 'HOURS')
+    retry(2)
+  }
+
+  triggers {
+    cron('0 * * * *') // Runs every day at midnight
+  }
+
+  stages {
+    stage('Source Code Pulling') {
+      steps {
+        git branch: 'main', url: 'https://github.com/SangramDev1/spring-petclinic.git'
+      }
     }
 
-    stages {
-        stage('Checkout Source') {
-            steps {
-                git url: 'https://github.com/SangramDev1/spring-petclinic.git', branch: 'main'
-            }
+    stage('Build & SonarQube Analysis') {
+      steps {
+        withSonarQubeEnv('SONAR_LATEST') { // Make sure SonarQube server is configured
+          withEnv(["M2_HOME=/opt/apache-maven-LATEST", "PATH=$M2_HOME/bin:$PATH"]) { // Update to latest Maven version
+            sh 'mvn clean package sonar:sonar'
+          }
         }
-
-        stage('Build & SonarQube Analysis') {
-            steps {
-                script {
-                    withSonarQubeEnv('SONAR_LATEST') { // Ensure 'SONAR_LATEST' is your configured SonarQube server name in Jenkins
-                        sh "${M2_HOME}/bin/mvn clean compile sonar:sonar"
-                    }
-                }
-            }
-        }
+      }
     }
 
-    post {
-        success {
-            echo 'Build and SonarQube Analysis completed successfully!'
-        }
-        failure {
-            echo 'Build failed. Check logs for errors.'
-        }
-        always {
-            cleanWs()
-        }
+    stage('Archiving the Artifacts and Test Results') {
+      steps {
+        junit '**/target/surefire-reports/*.xml' // Check the exact location of test reports
+        // Optional: Archive build artifacts if needed (e.g., archiveArtifacts 'target/*.jar')
+      }
     }
+  }
+
+  post {
+    success {
+      echo 'Build succeeded'
+    }
+    failure {
+      echo 'Build failed'
+    }
+  }
 }
