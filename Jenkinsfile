@@ -19,9 +19,13 @@ pipeline {
 
         stage('Build & SonarQube Analysis') {
             steps {
-                withSonarQubeEnv('SONAR_LATEST') { 
-                    withEnv(["M2_HOME=/opt/apache-maven-3.9.8", "PATH=$M2_HOME/bin:$PATH"]) {
-                        sh 'mvn clean package sonar:sonar'
+                script {
+                    // Wrap the environment configuration in a script block
+                    withSonarQubeEnv('SONAR_LATEST') { 
+                        withEnv(["M2_HOME=/opt/apache-maven-3.9.8", "PATH=$M2_HOME/bin:$PATH"]) {
+                            // Execute Maven with increased verbosity to debug issues
+                            sh 'mvn -X clean package sonar:sonar'
+                        }
                     }
                 }
             }
@@ -29,6 +33,7 @@ pipeline {
 
         stage('Archiving the Artifacts and Test Results') {
             steps {
+                // Archive test results
                 junit '**/target/surefire-reports/*.xml'
             }
         }
@@ -36,6 +41,7 @@ pipeline {
 
     post {
         always {
+            // Always clean workspace
             cleanWs()
         }
         success {
