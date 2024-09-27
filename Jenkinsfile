@@ -1,3 +1,6 @@
+cd spring-petclinic
+vi Jenkins
+
 pipeline {
     agent { label 'java' }
     
@@ -9,17 +12,7 @@ pipeline {
     triggers { 
         cron('0 * * * *') 
     }
-
-    parameters { 
-        choice(name: 'Goals', choices: ['package', 'compile', 'clean package'], description: 'Select Maven goals')
-    }
     
-    environment {
-        // Explicitly define the Maven Home and add to the PATH
-        M2_HOME = "/opt/apache-maven-3.9.8"
-        PATH = "${env.M2_HOME}/bin:${env.PATH}"
-    }
-
     stages {
         stage('Source Code Pulling') {
             steps {
@@ -27,10 +20,13 @@ pipeline {
             }
         }
 
-        stage('Building the Code') {
+        stage('Build & SonarQube Analysis') {
             steps {
-                // Use the updated PATH environment variable
-                sh "mvn ${params.Goals}"
+                withSonarQubeEnv('SONAR_LATEST') { 
+                    withEnv(["M2_HOME=/opt/apache-maven-3.9.8", "PATH=$M2_HOME/bin:$PATH"]) {
+                        sh 'mvn clean package sonar:sonar'
+                    }
+                }
             }
         }
 
