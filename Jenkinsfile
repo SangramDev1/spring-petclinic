@@ -7,7 +7,7 @@ pipeline {
   }
 
   triggers {
-    cron('0 * * * *') // Runs every day at midnight
+    cron('0 * * * *')
   }
 
   stages {
@@ -19,8 +19,8 @@ pipeline {
 
     stage('Build & SonarQube Analysis') {
       steps {
-        withSonarQubeEnv('SONAR_LATEST') { // Make sure SonarQube server is configured
-          withEnv(["M2_HOME=/opt/apache-maven-LATEST", "PATH=$M2_HOME/bin:$PATH"]) { // Update to latest Maven version
+        withEnv(["M2_HOME=/opt/apache-maven-3.9.8", "PATH=$M2_HOME/bin:$PATH"]) { // Set M2_HOME here
+          withSonarQubeEnv('SONAR_LATEST') { // Make sure SonarQube server is configured
             sh 'mvn clean package sonar:sonar'
           }
         }
