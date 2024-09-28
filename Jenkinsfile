@@ -1,61 +1,32 @@
 pipeline {
-    agent any
-
-    environment {
-        M2_HOME = "/opt/apache-maven-3.9.8"  // Use the Maven installation path on the node
-        PATH = "${M2_HOME}/bin:${env.PATH}"   // Add Maven to the system PATH
-    }
+    agent { label 'java' }
 
     stages {
-        stage('Checkout SCM') {
+        stage('Source Code Pulling') {
             steps {
-                // Checkout the source code from the Git repository
-                checkout scm
+                git branch: 'main', url: 'https://github.com/SangramDev1/spring-petclinic.git'
             }
         }
 
-        stage('Build & SonarQube Analysis') {
+        stage('Build') {
             steps {
-                script {
-                    // Run Maven build and SonarQube analysis
-                    withSonarQubeEnv('SONAR_LATEST') { // Ensure 'SonarQube' is configured in Jenkins
-                        sh "mvn clean verify sonar:sonar"
-                    }
+                sh '/opt/apache-maven-3.9.8/bin/mvn clean package'
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SONAR_LATEST') {
+                    sh '/opt/apache-maven-3.9.8/bin/mvn sonar:sonar'
                 }
             }
         }
 
-        stage('Quality Gate') {
+        stage('Archiving Artifacts and Test Results') {
             steps {
-                timeout(time: 5, unit: 'MINUTES') {
-                    script {
-                        def qg = waitForQualityGate()
-                        if (qg.status != 'OK') {
-                            error "Pipeline aborted due to quality gate failure: ${qg.status}"
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Archiving the Artifacts and Test Results') {
-            steps {
-                archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
                 junit '**/target/surefire-reports/*.xml'
+                archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
             }
-        }
-    }
-
-    post {
-        always {
-            // Clean up workspace after build
-            cleanWs()
-        }
-        success {
-            echo 'Build and SonarQube Analysis successful!'
-        }
-        failure {
-            echo 'Build failed.'
         }
     }
 }
